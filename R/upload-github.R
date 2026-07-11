@@ -3,10 +3,22 @@ library(piggyback)
 target_repo <- "allison-patterson/uria-lomvia-sdm-data"
 target_tag  <- "v0.0.0"
 
-file_inventory <- piggyback::pb_list(repo = my_repo, tag = "v0.0.0")
+file_inventory <- piggyback::pb_list(repo = target_repo, tag = target_tag)
 
 fn <- list.files('D:/tbmu-atlantic-sdm/data/ts_model/summaries', recursive = T, full.names = T)
-fn <- fn[grep('2024', fn)]
+fn <- fn[grep('2025', fn)]
+
+md <- unique(gsub(',','',(gsub(' ','',basename(dirname(fn))))))
+
+for (d in md) {
+  pb_release_create(
+    repo = target_repo,
+    tag = d,
+    commit = NULL,
+    name = d,
+    body = paste("Data release for", d)
+  )
+}
 
 flat <- paste0(
   gsub(',','',(gsub(' ','',basename(dirname(fn))))),
@@ -14,12 +26,15 @@ flat <- paste0(
   basename(fn)
 )
 
-idx <- !(flat %in% file_inventory$file_name)
-fn <- fn[idx]
-flat <- flat[idx]
-
 # RUN LOOP WITH RETRY LOGIC
 for (x in 1:length(fn)) {
+  
+  target_tag <- strsplit(flat[x],'_')[[1]][1]
+  
+  file_inventory <- piggyback::pb_list(repo = target_repo, tag = target_tag)
+  
+  if (!(flat[x] %in% file_inventory$file_name)) {
+  
   message("Uploading: ", fn[x])
   
   # Set up a retry loop (allows 3 attempts per file)
@@ -49,6 +64,9 @@ for (x in 1:length(fn)) {
     message("Permanently skipped: ", fn[x], " after 3 failed attempts.")
   }
   
-  # Standard pause between successful files (increased slightly for safety)
+  # Pause between successful files
   Sys.sleep(4)
+  } else message("Skipping: ", fn[x])
 }
+
+
